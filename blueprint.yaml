@@ -2,12 +2,12 @@ blueprint:
   name: Reset lights to defaults after power restore
   description: >
     When selected lights reconnect after a power cut (state unavailable -> on),
-    restore brightness and color temperature to default values.
+    set brightness and color temperature to default values.
   domain: automation
   input:
     lights:
       name: Lights
-      description: Choose one or more light entities or groups
+      description: Select one or more light entities or groups
       selector:
         entity:
           multiple: true
@@ -53,8 +53,9 @@ action:
       for_each: "{{ lights_list }}"
       sequence:
         - service: light.turn_on
-          data:
+          target:
             entity_id: "{{ repeat.item }}"
+          data:
             brightness_pct: "{{ brightness_value }}"
             color_temp: "{{ color_temp_value }}"
             transition: 1
