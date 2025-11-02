@@ -1,12 +1,13 @@
 blueprint:
   name: Reset lights to defaults after power restore
   description: >
-    After lights come back from power loss (unavailable -> on), set default brightness/color.
+    When selected lights reconnect after a power cut (state unavailable -> on),
+    restore brightness and color temperature to default values.
   domain: automation
   input:
     lights:
-      name: Lights (one or more)
-      description: Select light entities or a light group
+      name: Lights
+      description: Choose one or more light entities or groups
       selector:
         entity:
           multiple: true
@@ -22,7 +23,6 @@ blueprint:
           unit_of_measurement: "%"
     color_temp:
       name: Color temperature (mireds)
-      description: Leave empty to skip
       default: 350
       selector:
         number:
@@ -32,7 +32,6 @@ blueprint:
 
 mode: restart
 
-# On déclenche quand CHAQUE entité repasse de 'unavailable' à 'on'
 trigger:
   - platform: state
     entity_id: !input lights
@@ -40,24 +39,22 @@ trigger:
     to: "on"
 
 variables:
-  _lights: !input lights
-  _brightness: !input brightness_pct
-  _ct: !input color_temp
+  lights_list: !input lights
+  brightness_value: !input brightness_pct
+  color_temp_value: !input color_temp
 
 condition: []
 
 action:
-  # Petit délai pour laisser le maillage se stabiliser
   - delay:
       seconds: 2
 
-  # On applique les valeurs par défaut
-  - service: light.turn_on
-    target:
-      entity_id: !input lights
-    data:
-      brightness_pct: "{{ _brightness }}"
-      {% raw %}{% if _ct is not none %}{% endraw %}
-      color_temp: "{{ _ct }}"
-      {% raw %}{% endif %}{% endraw %}
-      transition: 1
+  - repeat:
+      for_each: "{{ lights_list }}"
+      sequence:
+        - service: light.turn_on
+          data:
+            entity_id: "{{ repeat.item }}"
+            brightness_pct: "{{ brightness_value }}"
+            color_temp: "{{ color_temp_value }}"
+            transition: 1
