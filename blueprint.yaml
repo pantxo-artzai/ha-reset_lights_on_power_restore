@@ -1,0 +1,80 @@
+blueprint:
+  name: Reset Lights to Default after Power Restore
+  description: >
+    Detects when selected lights become available again (after power cut) and applies default settings
+    such as brightness and color temperature, or restores a saved scene snapshot.
+  domain: automation
+  input:
+    light_target:
+      name: Light(s)
+      description: Select the light(s) or group to reset
+      selector:
+        target:
+          entity:
+            domain: light
+    brightness_pct:
+      name: Brightness %
+      description: Brightness to set after power restore (0–100)
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+    color_temp:
+      name: Color temperature (mireds)
+      description: Optional — leave empty to skip
+      default: 350
+      selector:
+        number:
+          min: 150
+          max: 500
+          mode: slider
+    use_snapshot:
+      name: Restore previous state instead of fixed values
+      description: >
+        If enabled, the automation will snapshot current state before power loss
+        and restore it instead of applying default brightness/color.
+      default: false
+      selector:
+        boolean: {}
+
+mode: restart
+
+trigger:
+  - platform: state
+    entity_id: !input light_target
+    from: 'unavailable'
+    to: 'on'
+
+variables:
+  brightness_pct: !input brightness_pct
+  color_temp: !input color_temp
+  use_snapshot: !input use_snapshot
+  target_lights: !input light_target
+
+action:
+  - choose:
+      - conditions: "{{ use_snapshot }}"
+        sequence:
+          - service: scene.create
+            data:
+              scene_id: "temp_restore_scene"
+              snapshot_entities: "{{ expand(target_lights.entity_id) | map(attribute='entity_id') | list }}"
+          - delay: "00:00:02"
+          - service: scene.turn_on
+            target:
+              entity_id: scene.temp_restore_scene
+          - delay: "00:00:01"
+          - service: scene.delete
+            target:
+              entity_id: scene.temp_restore_scene
+    default:
+      - delay: "00:00:02"
+      - service: light.turn_on
+        target: !input light_target
+        data:
+          brightness_pct: "{{ brightness_pct }}"
+          color_temp: "{{ color_temp }}"
+          transition: 1
